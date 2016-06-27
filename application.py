@@ -5,11 +5,12 @@ from kik.messages import TextMessage, PictureMessage, messages_from_json,Suggest
                         TextResponse, LinkMessage,StartChattingMessage, CustomAttribution
 from wit import Wit
 
-from bot import app,  kik, access_token
+from bot import app as application
+from bot import kik, access_token
 import canned_responses
 from wit_helpers import say,merge,error, storeContext, retrieveContext
 
-app.debug = True
+application.debug = True
 SHOW_THIS_MANY = 3 # How many pictures to show at once
 
 def showFitRoomResults(chat_id,from_user,context):
@@ -305,7 +306,7 @@ def sendWelcomeMessage(chat_id,from_user):
             ))
     kik.send_messages(send_these)
     
-@app.route('/', methods=['POST'])
+@application.route('/', methods=['POST'])
 def index():
     """
     Main entry point for Kik POSTing to us.
@@ -354,5 +355,5 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run()
+    application.run()
 
