@@ -14,7 +14,7 @@ DATABASE = {
         'HOST': os.environ['RDS_HOSTNAME'],
         'PORT': os.environ['RDS_PORT'],
 }
-DB_URI = 'postgres://{NAME}:{PASSWORD}@{HOST}'.format(**DATABASE)
+DB_URI = 'postgres://{USER}:{PASSWORD}@{HOST}'.format(**DATABASE)
 access_token = os.environ.get('WIT_SERVER_ACCESS_TOKEN')
 BOT_USERNAME = os.environ.get('BOT_USERNAME')
 BOT_API_KEY = os.environ.get('KIK_API_KEY')
