@@ -14,7 +14,7 @@ DATABASE = {
         'HOST': os.environ['RDS_HOSTNAME'],
         'PORT': os.environ['RDS_PORT'],
 }
-DB_URI = 'postgres://{USER}:{PASSWORD}@{HOST}/{NAME}'.format(**DATABASE)
+DB_URI = 'postgres://{USER}:{PASSWORD}@{HOST}:{PORT}/{NAME}'.format(**DATABASE)
 print DB_URI
 access_token = os.environ.get('WIT_SERVER_ACCESS_TOKEN')
 BOT_USERNAME = os.environ.get('BOT_USERNAME')
