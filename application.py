@@ -269,23 +269,7 @@ def seeMoreResults(chat_id,context):
 
 def sayHi(chat_id,context):
     say(chat_id,context,canned_responses.hello())
-    
-# Actions wit knows about and can call
-# must have the template: function(chat_id,context)
-actions = {
-    'say': say,
-    'merge': merge,
-    'error': error,
-    'fitroom-lookup': getFitroomResults,
-    'searchAgain': searchAgain,
-    'buyThis': buyThis,
-    'searchOrbuy': searchOrbuy,
-    'doTextSearchEncounter': doTextSearchEncounter,
-    'seeMoreResults':seeMoreResults,
-    'sayHi': sayHi
-}
 
-client = Wit(access_token, actions) # Invoke wit
 
 def sendWelcomeMessage(chat_id,context):
     """
@@ -332,6 +316,25 @@ def sendHowTo(chat_id,context):
     context['user_img_url'] = example_img
     context['search_type'] = 'image'
     getFitroomResults(chat_id,context)
+    
+    
+# Actions wit knows about and can call
+# must have the template: function(chat_id,context)
+actions = {
+    'say': say,
+    'merge': merge,
+    'error': error,
+    'fitroom-lookup': getFitroomResults,
+    'searchAgain': searchAgain,
+    'buyThis': buyThis,
+    'searchOrbuy': searchOrbuy,
+    'doTextSearchEncounter': doTextSearchEncounter,
+    'seeMoreResults':seeMoreResults,
+    'sayHi': sayHi,
+    'sendWelcomeMessage': sendWelcomeMessage
+}
+
+client = Wit(access_token, actions) # Invoke wit
     
 @application.route('/', methods=['POST'])
 def index():
