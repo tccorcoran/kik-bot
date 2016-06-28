@@ -1,8 +1,12 @@
+from __future__ import print_function
 import os
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 from kik import KikApi,Configuration
+import sys
 
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 app = Flask(__name__)
 
@@ -15,7 +19,7 @@ DATABASE = {
         'PORT': os.environ['RDS_PORT'],
 }
 DB_URI = 'postgres://{USER}:{PASSWORD}@{HOST}:{PORT}/{NAME}'.format(**DATABASE)
-print DB_URI
+eprint(DB_URI)
 access_token = os.environ.get('WIT_SERVER_ACCESS_TOKEN')
 BOT_USERNAME = os.environ.get('BOT_USERNAME')
 BOT_API_KEY = os.environ.get('KIK_API_KEY')
