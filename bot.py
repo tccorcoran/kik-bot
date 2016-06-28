@@ -12,14 +12,13 @@ app = Flask(__name__)
 
 
 DATABASE = {
-        'NAME': os.environ['RDS_DB_NAME'],
-        'USER': os.environ['RDS_USERNAME'],
-        'PASSWORD': os.environ['RDS_PASSWORD'],
-        'HOST': os.environ['RDS_HOSTNAME'],
-        'PORT': os.environ['RDS_PORT'],
+        'NAME': os.environ['DB_NAME'],
+        'USER': os.environ['DB_USERNAME'],
+        'PASSWORD': os.environ['DB_PASSWORD'],
+        'HOST': os.environ['DB_URL'],
 }
-DB_URI = 'postgres://{USER}:{PASSWORD}@{HOST}:{PORT}/{NAME}'.format(**DATABASE)
-eprint(DB_URI)
+DB_URI = 'postgres://{USER}:{PASSWORD}@{HOST}:5432/{NAME}'.format(**DATABASE)
+
 access_token = os.environ.get('WIT_SERVER_ACCESS_TOKEN')
 BOT_USERNAME = os.environ.get('BOT_USERNAME')
 BOT_API_KEY = os.environ.get('KIK_API_KEY')
