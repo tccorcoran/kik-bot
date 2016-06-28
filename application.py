@@ -287,15 +287,17 @@ actions = {
 
 client = Wit(access_token, actions) # Invoke wit
 
-def sendWelcomeMessage(chat_id,from_user):
+def sendWelcomeMessage(chat_id,context):
     """
     These messages are sent once when a user first contacts Anna; they're only
     ever sent once
     """
-    msgs = ["Hey, I'm AnnaFashionBot and I'm your personal Fitroom stylist bot!",
+    from_user = context['from_user']
+    msgs = ["Hey, I'm AnnaFashionBot and I'm your personal stylist bot!",
             "I can help you find a new outfit. Let's get started!",
-            "Send a pic of an outfit you want to find or just describe it. e.g. I'm looking for a floral maxi dress",
-            "(FYI: I'm pretty good at women's fashion, but I'm still learning about other stuff)"]
+            "Send a pic of a dress you want to find or just describe it.",
+            "Let me show you"
+            ]
     send_these = []
     for msg in msgs:
         send_these.append(
@@ -305,6 +307,31 @@ def sendWelcomeMessage(chat_id,from_user):
             body=msg
             ))
     kik.send_messages(send_these)
+    sendHowTo(chat_id,context)
+    
+    
+def sendHowTo(chat_id,context):
+    from_user = context['from_user']
+    example_img = 'https://s-media-cache-ak0.pinimg.com/236x/49/d3/bf/49d3bf2bb0d88aa79c5fb7b41195e48c.jpg'
+    send_these = [TextMessage(
+                    to=from_user,chat_id=chat_id,body='First, find a picture of the dress. Make sure the dress is the only thing in the picture. Like this:'
+                    )
+                 ]
+    send_these.append(
+        PictureMessage(
+            to=from_user,
+            chat_id=chat_id,
+            pic_url=example_img
+        )
+    )
+    send_these.append(TextMessage(
+                    to=from_user,chat_id=chat_id,body="After you send us the image, I'll show you simiar dresess. Like this:"
+                    )
+                     )
+    kik.send_messages(send_these)
+    context['user_img_url'] = example_img
+    context['search_type'] = 'image'
+    getFitroomResults(chat_id,context)
     
 @application.route('/', methods=['POST'])
 def index():
@@ -346,7 +373,7 @@ def index():
         
         elif isinstance(message, StartChattingMessage):
             # User has started a chart for the first time; this is sent only once every for each user
-            sendWelcomeMessage(message.chat_id,message.from_user)
+            sendWelcomeMessage(message.chat_id,context0)
         else:
             # don't know how to respond to other messages e.g. videos
             say(message.chat_id,context0,"I'm new here. I'll be learning as I'm going. Try sending me a pic")
