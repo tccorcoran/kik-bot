@@ -1,12 +1,9 @@
-from __future__ import print_function
 import os
 from flask import Flask
 from flask.ext.sqlalchemy import SQLAlchemy
 from kik import KikApi,Configuration
-import sys
 
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
+
 
 app = Flask(__name__)
 
