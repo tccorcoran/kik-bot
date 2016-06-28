@@ -19,6 +19,16 @@ def last_entity_value(entities, entity):
         return None
     return val['value'] if isinstance(val, dict) else val
 
+def all_entity_values(entities, entity):
+    if entity not in entities:
+        return None
+    all_vals = [x['value'] for x in entities[entity]]
+    all_vals = ' '.join(all_vals)
+    val = entities[entity][-1]['value']
+    if not val:
+        return None
+    return val
+
 def storeContext(chat_id,from_user,context):
     c = Context(chat_id,from_user,context)
     db.session.add(c)
@@ -45,7 +55,7 @@ def merge(session_id, context, entities, msg):
     from_user = context['from_user']
     context = retrieveContext(session_id, from_user)
     selection = last_entity_value(entities, 'ordinal')
-    search_keywords = last_entity_value(entities, 'search_words')
+    search_keywords = all_entity_values(entities, 'search_words')
     if selection:
         context['selected_outfit'] = selection
     if search_keywords:
