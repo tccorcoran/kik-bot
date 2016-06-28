@@ -24,10 +24,9 @@ def all_entity_values(entities, entity):
         return None
     all_vals = [x['value'] for x in entities[entity]]
     all_vals = ' '.join(all_vals)
-    val = entities[entity][-1]['value']
-    if not val:
+    if not all_vals:
         return None
-    return val
+    return all_vals
 
 def storeContext(chat_id,from_user,context):
     c = Context(chat_id,from_user,context)
