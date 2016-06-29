@@ -89,6 +89,13 @@ def getFitroomResults(chat_id,context):
 
 def selectAnImageMsg(chat_id,context):
     from_user = context['from_user']
+    
+    responses = [TextResponse('Digging the first one'),
+                   TextResponse('Like the second'),
+                   TextResponse("Let's go with the third"),
+                   TextResponse('See more like this')]
+    if context['search_type'] == 'image':
+        responses.append(TextResponse('See results on gofindfashion.com'))
     select_an_image_msg = TextMessage(
         to=from_user,
         chat_id=chat_id,
@@ -96,10 +103,7 @@ def selectAnImageMsg(chat_id,context):
         )
     select_an_image_msg.keyboards.append(
         SuggestedResponseKeyboard(
-                responses=[TextResponse('Digging the first one'),
-                   TextResponse('Like the second'),
-                   TextResponse("Let's go with the third"),
-                   TextResponse('These all suck')]
+                responses=responses
                 )
         )   
     kik.send_messages([select_an_image_msg])
@@ -266,7 +270,11 @@ def seeMoreResults(chat_id,context):
         showFitRoomResults(chat_id,from_user,context)
     else:
         showShopStyleResults(chat_id,from_user,context)
-
+        
+def seeResultsOnWebsite(chat_id,context):
+    from_user = context['from_user']
+    msg = LinkMessage(to=from_user,chat_id=chat_id,url='http://gofindfashion.com',title="Go Find Fashion Seach Engine")
+    kik.send_messages([msg])
 def sayHi(chat_id,context):
     say(chat_id,context,canned_responses.hello())
 
@@ -279,8 +287,7 @@ def sendWelcomeMessage(chat_id,context):
     from_user = context['from_user']
     msgs = ["Hey, I'm AnnaFashionBot and I'm your personal stylist bot!",
             "I can help you find a new outfit. Let's get started!",
-            "Send a pic of a dress you want to find or just describe it.",
-            "Let me show you"
+            "Send a pic of a dress you want to find or just describe it."
             ]
     send_these = []
     for msg in msgs:
@@ -290,8 +297,21 @@ def sendWelcomeMessage(chat_id,context):
             chat_id=chat_id,
             body=msg
             ))
+        
+    show_me = TextMessage(
+        to=from_user,
+        chat_id=chat_id,
+        body="Let me show you"
+        )
+    show_me.keyboards.append(
+        SuggestedResponseKeyboard(
+                responses=[TextResponse('Show me now!')]
+                )
+        )   
+    send_these.append(show_me)
     kik.send_messages(send_these)
-    sendHowTo(chat_id,context)
+    
+
     
     
 def sendHowTo(chat_id,context):
@@ -365,6 +385,10 @@ def index():
                 searchAgain(message.chat_id,context0)
             elif message.body in ('See more of these results', 'These all suck'):
                 seeMoreResults(message.chat_id, context0)
+            elif message.body == "See results on gofindfashion.com":
+                seeResultsOnWebsite(message.chat_id,context0)
+            elif message.body == "Show me now!":
+                sendHowTo(message.chat_id,context0)
             else:
                 client.run_actions(message.chat_id, message.body, context0)
         elif isinstance(message, PictureMessage):
