@@ -7,12 +7,14 @@ class Context(db.Model):
     chat_id = db.Column(db.String(64))
     context = db.Column(JSONB)
     msg = db.Column(db.Text())
+    action = db.Column(db.String(64))
     
-    def __init__(self,chat_id,from_user,context,msg=None):
+    def __init__(self,chat_id,from_user,context,msg=None,action=None):
         self.from_user = from_user
         self.chat_id = chat_id
         self.context = context
         self.msg = msg
+        self.action = action
 
 class TextQueryResults(db.Model):
     __tablename__ = 'text_query_results'
