@@ -1,4 +1,7 @@
+import os
 import requests
+from functools import wraps
+
 from flask import request, Response
 from kik import KikError
 from kik.messages import TextMessage, PictureMessage, messages_from_json,SuggestedResponseKeyboard,\
@@ -10,9 +13,24 @@ from bot import kik, access_token
 import canned_responses
 from wit_helpers import say,merge,error, storeContext, retrieveContext
 
-application.debug = True
+ENV_TYPE = os.environ.get('ENV_TYPE')
+VERBOSE = False 
 SHOW_THIS_MANY = 3 # How many pictures to show at once
 
+if ENV_TYPE == 'DEV':
+    application.debug = True
+    VERBOSE = True
+
+
+def debug_info(func):
+    @wraps(func)
+    def tmp(*args, **kwargs):
+        if VERBOSE:
+            print "Entering:",func.__name__
+        return func(*args, **kwargs)
+    return tmp
+
+@debug_info
 def showFitRoomResults(chat_id,from_user,context):
     """ Sends picture messages through kik using results from Fitroom
     args: chat_id
@@ -21,6 +39,7 @@ def showFitRoomResults(chat_id,from_user,context):
     returns:
           responseFromAPI: removed dead image links
     """
+
     responseFromAPI = context['image_query_result'] 
         # clean up resuts, lots of duplicates in results....
     result_image_urls = [value['imageUrl'] for value in responseFromAPI['images']]
@@ -54,10 +73,11 @@ def showFitRoomResults(chat_id,from_user,context):
         
     context['image_query_result_index'] = i + image_query_result_index # remember which results we've showed
     context['image_query_result'] = responseFromAPI
-    storeContext(chat_id,from_user,context)
+    storeContext(chat_id,from_user,context,action='showFitroomResults')
     selectAnImageMsg(chat_id,context)
     return responseFromAPI
 
+@debug_info
 def getFitroomResults(chat_id,context):
     """ Call fitroom search api with url of image to search for
         then send results
@@ -86,9 +106,16 @@ def getFitroomResults(chat_id,context):
     showFitRoomResults(chat_id,from_user,context)
     return Response(status=200)
         
-
+@debug_info
 def selectAnImageMsg(chat_id,context):
     from_user = context['from_user']
+    
+    responses = [TextResponse('Digging the first one'),
+                   TextResponse('Like the second'),
+                   TextResponse("Let's go with the third"),
+                   TextResponse('See more like this')]
+    if context['search_type'] == 'image':
+        responses.append(TextResponse('See results on gofindfashion.com'))
     select_an_image_msg = TextMessage(
         to=from_user,
         chat_id=chat_id,
@@ -96,14 +123,12 @@ def selectAnImageMsg(chat_id,context):
         )
     select_an_image_msg.keyboards.append(
         SuggestedResponseKeyboard(
-                responses=[TextResponse('Digging the first one'),
-                   TextResponse('Like the second'),
-                   TextResponse("Let's go with the third"),
-                   TextResponse('These all suck')]
+                responses=responses
                 )
         )   
     kik.send_messages([select_an_image_msg])
-    
+
+@debug_info    
 def doSearchEncounter(chat_id,context):
     """
     This fn is used to run through a search encounter
@@ -120,7 +145,8 @@ def doSearchEncounter(chat_id,context):
        status = getShopStyleResults(chat_id,context)
     if status.status_code !=200:
         return Response(status=200)
-    
+
+@debug_info    
 def searchAgain(chat_id,context):
     """
     User has selected a picture she likes and would like to run a visual search agaist
@@ -145,10 +171,11 @@ def searchAgain(chat_id,context):
             user_img_url = prev_context['text_query_result']['products'][i]['image']['sizes']['Best']['url']
         prev_context['user_img_url'] = user_img_url
         prev_context['search_type'] = 'image'
-        storeContext(chat_id,from_user,prev_context)
+        storeContext(chat_id,from_user,prev_context,action='searchAgain')
         doSearchEncounter(chat_id, prev_context)
     return Response(status=200)
 
+@debug_info
 def buyThis(chat_id,context):
     """
     User has selected a picture she likes, and would like to visit the
@@ -177,7 +204,8 @@ def buyThis(chat_id,context):
         tip = TextMessage(to=from_user,chat_id=chat_id,body="Remember you can search again anytime by sending me a pic ;) or type 'more' to keep shopping")
         here = TextMessage(to=from_user,chat_id=chat_id,body="Here ya go:")
         kik.send_messages([here,link_message,tip])
-        
+
+@debug_info        
 def searchOrbuy(chat_id,context):
     """
     User has selected a picture she likes;
@@ -197,7 +225,8 @@ def searchOrbuy(chat_id,context):
                 )
         )   
     kik.send_messages([search_or_buy])
-    
+
+@debug_info    
 def showShopStyleResults(chat_id,from_user,context):
     api_json = context['text_query_result']
     result_image_urls = [value['image']['sizes']['IPhone']['url'] for value in api_json['products']]
@@ -221,11 +250,12 @@ def showShopStyleResults(chat_id,from_user,context):
         
     context['text_query_result_index'] = i + text_query_result_index # remember which results we've showed
     context['text_query_result'] = api_json
-    storeContext(chat_id,from_user,context)
+    storeContext(chat_id,from_user,context,action='showShopStyleResults')
     selectAnImageMsg(chat_id,context)
 
     return api_json
 
+@debug_info
 def getShopStyleResults(chat_id,context):
     """
     Run a text search against shopstyle api
@@ -247,6 +277,7 @@ def getShopStyleResults(chat_id,context):
 
     return Response(status=200)
 
+@debug_info
 def doTextSearchEncounter(chat_id,context):
     """
     User has sent a message like 'find me a red sundress'
@@ -255,9 +286,10 @@ def doTextSearchEncounter(chat_id,context):
     from_user = context['from_user']
     context = retrieveContext(chat_id,from_user)
     context['search_type'] = 'text'
-    storeContext(chat_id,from_user,context)
+    storeContext(chat_id,from_user,context,action='doTextSearchEncounter')
     doSearchEncounter(chat_id,context)
 
+@debug_info
 def seeMoreResults(chat_id,context):
     from_user = context['from_user']
     context = retrieveContext(chat_id,from_user)
@@ -266,9 +298,69 @@ def seeMoreResults(chat_id,context):
         showFitRoomResults(chat_id,from_user,context)
     else:
         showShopStyleResults(chat_id,from_user,context)
-
+ 
+@debug_info       
+def seeResultsOnWebsite(chat_id,context):
+    from_user = context['from_user']
+    img_url = context['user_img_url']
+    msg = LinkMessage(to=from_user,chat_id=chat_id,url='http://gofindfashion.com?'+img_url,title="Go Find Fashion Seach Engine")
+    kik.send_messages([msg])
+@debug_info
 def sayHi(chat_id,context):
     say(chat_id,context,canned_responses.hello())
+
+@debug_info
+def sendWelcomeMessage(chat_id,context):
+    """
+    These messages are sent once when a user first contacts Anna; they're only
+    ever sent once
+    """
+    from_user = context['from_user']
+    msgs = ["Hey, I'm AnnaFashionBot and I'm your personal stylist bot!",
+            "I can help you find a new outfit. Let's get started!",
+            "Send a pic of a dress you want to find or just describe it."
+            ]
+    send_these = []
+    for msg in msgs:
+        send_these.append(
+            TextMessage(
+            to=from_user,
+            chat_id=chat_id,
+            body=msg
+            ))
+        
+    show_me = TextMessage(
+        to=from_user,
+        chat_id=chat_id,
+        body="Let me show you"
+        )
+    show_me.keyboards.append(
+        SuggestedResponseKeyboard(
+                responses=[TextResponse('Show me now!')]
+                )
+        )   
+    send_these.append(show_me)
+    kik.send_messages(send_these)
+    
+@debug_info
+def sendHowTo(chat_id,context):
+    from_user = context['from_user']
+    example_img = 'https://s-media-cache-ak0.pinimg.com/236x/49/d3/bf/49d3bf2bb0d88aa79c5fb7b41195e48c.jpg'
+    send_these = [TextMessage(
+                    to=from_user,chat_id=chat_id,
+                    body='First, find a picture of the dress. Make sure the dress is the only thing in the picture. Like this:')]
+    send_these.append(
+        PictureMessage(
+            to=from_user,
+            chat_id=chat_id,
+            pic_url=example_img))
+    send_these.append(TextMessage(
+                    to=from_user,chat_id=chat_id,body="After you show me the dress you're looking for, I'll show you simiar dresess. Like this:"))
+    kik.send_messages(send_these)
+    context['user_img_url'] = example_img
+    context['search_type'] = 'image'
+    getFitroomResults(chat_id,context)
+    
     
 # Actions wit knows about and can call
 # must have the template: function(chat_id,context)
@@ -282,29 +374,11 @@ actions = {
     'searchOrbuy': searchOrbuy,
     'doTextSearchEncounter': doTextSearchEncounter,
     'seeMoreResults':seeMoreResults,
-    'sayHi': sayHi
+    'sayHi': sayHi,
+    'sendWelcomeMessage': sendWelcomeMessage
 }
 
 client = Wit(access_token, actions) # Invoke wit
-
-def sendWelcomeMessage(chat_id,from_user):
-    """
-    These messages are sent once when a user first contacts Anna; they're only
-    ever sent once
-    """
-    msgs = ["Hey, I'm AnnaFashionBot and I'm your personal Fitroom stylist bot!",
-            "I can help you find a new outfit. Let's get started!",
-            "Send a pic of an outfit you want to find or just describe it. e.g. I'm looking for a floral maxi dress",
-            "(FYI: I'm pretty good at women's fashion, but I'm still learning about other stuff)"]
-    send_these = []
-    for msg in msgs:
-        send_these.append(
-            TextMessage(
-            to=from_user,
-            chat_id=chat_id,
-            body=msg
-            ))
-    kik.send_messages(send_these)
     
 @application.route('/', methods=['POST'])
 def index():
@@ -328,13 +402,17 @@ def index():
         if retrieveContext(message.chat_id,message.from_user):
             context0 = retrieveContext(message.chat_id,message.from_user)
         if isinstance(message, TextMessage):
-            storeContext(message.chat_id,message.from_user,context0)
+            storeContext(message.chat_id,message.from_user,context0,msg=message.body)
             if message.body == 'Go to store':
                 buyThis(message.chat_id,context0)
             elif message.body == 'Search again using that pic':
                 searchAgain(message.chat_id,context0)
             elif message.body in ('See more of these results', 'These all suck'):
                 seeMoreResults(message.chat_id, context0)
+            elif message.body == "See results on gofindfashion.com":
+                seeResultsOnWebsite(message.chat_id,context0)
+            elif message.body == "Show me now!":
+                sendHowTo(message.chat_id,context0)
             else:
                 client.run_actions(message.chat_id, message.body, context0)
         elif isinstance(message, PictureMessage):
@@ -346,7 +424,7 @@ def index():
         
         elif isinstance(message, StartChattingMessage):
             # User has started a chart for the first time; this is sent only once every for each user
-            sendWelcomeMessage(message.chat_id,message.from_user)
+            sendWelcomeMessage(message.chat_id,context0)
         else:
             # don't know how to respond to other messages e.g. videos
             say(message.chat_id,context0,"I'm new here. I'll be learning as I'm going. Try sending me a pic")

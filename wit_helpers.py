@@ -28,8 +28,8 @@ def all_entity_values(entities, entity):
         return None
     return all_vals
 
-def storeContext(chat_id,from_user,context):
-    c = Context(chat_id,from_user,context)
+def storeContext(chat_id,from_user,context,msg=None,action=None):
+    c = Context(chat_id,from_user,context,msg=msg,action=action)
     db.session.add(c)
     db.session.commit()
     
@@ -59,7 +59,7 @@ def merge(session_id, context, entities, msg):
         context['selected_outfit'] = selection
     if search_keywords:
         context['search_keywords'] = search_keywords
-    storeContext(session_id,from_user,context)
+    storeContext(session_id,from_user,context,action='merge')
     return context
 
 def error(session_id, context, e):
