@@ -26,6 +26,7 @@ def debug_info(func):
     @wraps(func)
     def tmp(*args, **kwargs):
         if VERBOSE:
+
             print "Entering:",func.__name__
         return func(*args, **kwargs)
     return tmp
@@ -113,7 +114,8 @@ def selectAnImageMsg(chat_id,context):
     responses = [TextResponse('Digging the first one'),
                    TextResponse('Like the second'),
                    TextResponse("Let's go with the third"),
-                   TextResponse('See more like this')]
+                   TextResponse('See more like this'),
+                   TextResponse('New search')]
     if context['search_type'] == 'image':
         responses.append(TextResponse('See results on gofindfashion.com'))
     select_an_image_msg = TextMessage(
@@ -221,7 +223,8 @@ def searchOrbuy(chat_id,context):
         SuggestedResponseKeyboard(
                 responses=[TextResponse('Go to store'),
                         TextResponse('Search again using that pic'),
-                        TextResponse('See more of these results')]
+                        TextResponse('See more of these results'),
+                        TextResponse('New search')]
                 )
         )   
     kik.send_messages([search_or_buy])
@@ -361,7 +364,12 @@ def sendHowTo(chat_id,context):
     context['search_type'] = 'image'
     getFitroomResults(chat_id,context)
     
+def newSearch(chat_id,context):
+    from_user = context['from_user']
+    t= TextMessage(to=from_user,chat_id=chat_id,
+                    body="Send me a picture of a dress (with only the dress in the pic) or just tell me what you're looking for")
     
+    kik.send_messages([t])
 # Actions wit knows about and can call
 # must have the template: function(chat_id,context)
 actions = {
@@ -413,6 +421,8 @@ def index():
                 seeResultsOnWebsite(message.chat_id,context0)
             elif message.body == "Show me now!":
                 sendHowTo(message.chat_id,context0)
+            elif message.body  == 'New search':
+                newSearch(message.chat_id,context0)
             else:
                 client.run_actions(message.chat_id, message.body, context0)
         elif isinstance(message, PictureMessage):
