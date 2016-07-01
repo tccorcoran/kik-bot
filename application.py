@@ -358,9 +358,9 @@ def sendHowTo(chat_id,context):
             to=from_user,
             chat_id=chat_id,
             pic_url=example_img))
-    send_these.append(TextMessage(
-                    to=from_user,chat_id=chat_id,body="After you show me the dress you're looking for, I'll show you simiar dresess. Like this:"))
     kik.send_messages(send_these)
+    context['user_img_url'] = example_img
+    context['search_type'] = 'image'
     getFitroomResults(chat_id,context)
 
 @debug_info
