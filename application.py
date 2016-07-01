@@ -1,5 +1,6 @@
 import os
 import requests
+import random
 from functools import wraps
 
 from flask import request, Response
@@ -360,15 +361,37 @@ def sendHowTo(chat_id,context):
     send_these.append(TextMessage(
                     to=from_user,chat_id=chat_id,body="After you show me the dress you're looking for, I'll show you simiar dresess. Like this:"))
     kik.send_messages(send_these)
+    getFitroomResults(chat_id,context)
+
+@debug_info
+def showExample(chat_id,context):
+    from_user = context['from_user']
+    examples = ['https://67.media.tumblr.com/1ac999c8b7993df3a1d933f1f26ed9aa/tumblr_o9mckr1dNV1ra7lgpo1_500.jpg',
+                'https://66.media.tumblr.com/8d49c01c751ad772082497cd1a81fe77/tumblr_o9mbu5xJGu1ugb53eo1_1280.jpg',
+                'https://66.media.tumblr.com/64fbda3655c3788b30144ed84df56af1/tumblr_o9mfsoQ2gD1tjge28o1_1280.jpg',
+                'https://67.media.tumblr.com/da191961868fb3f521263aee6a70daca/tumblr_nzc6fbNNub1sh1xn8o1_400.jpg',
+                'http://66.media.tumblr.com/346111ed3cad276b1a3f5630a173a8fe/tumblr_o5znu2zfj91r5wynfo1_500.jpg',
+                'https://65.media.tumblr.com/dc403c140ce960644f55039ac63b8228/tumblr_o996wwm4RX1qc04t7o1_500.jpg']
+    example_img =  random.choice(examples)
     context['user_img_url'] = example_img
     context['search_type'] = 'image'
+
+    kik.send_messages([PictureMessage(to=from_user,chat_id=chat_id,pic_url=example_img),
+                        TextMessage(to=from_user,chat_id=chat_id, body="Let's start with something like this ^^")
+                        ])
     getFitroomResults(chat_id,context)
-    
+
+@debug_info   
 def newSearch(chat_id,context):
     from_user = context['from_user']
     t= TextMessage(to=from_user,chat_id=chat_id,
-                    body="Send me a picture of a dress (with only the dress in the pic) or just tell me what you're looking for")
-    
+                    body=
+                    "Send me a pic with only the dress you're looking for, OR type in what you're looking for, OR pick \"Anna's Choice\" for a suprise ;)")
+    t.keyboards.append(
+        SuggestedResponseKeyboard(
+                responses=[TextResponse("Anna's Choice")]
+                )
+        )   
     kik.send_messages([t])
 # Actions wit knows about and can call
 # must have the template: function(chat_id,context)
@@ -417,12 +440,14 @@ def index():
                 searchAgain(message.chat_id,context0)
             elif message.body in ('See more of these results', 'These all suck'):
                 seeMoreResults(message.chat_id, context0)
-            elif message.body == "See results on gofindfashion.com":
+            elif message.body == "See results on the GoFindFashion website":
                 seeResultsOnWebsite(message.chat_id,context0)
             elif message.body == "Show me now!":
                 sendHowTo(message.chat_id,context0)
             elif message.body  == 'New search':
                 newSearch(message.chat_id,context0)
+            elif message.body == "Anna's Choice":
+                showExample(message.chat_id, context0)
             else:
                 client.run_actions(message.chat_id, message.body, context0)
         elif isinstance(message, PictureMessage):
