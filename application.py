@@ -118,7 +118,7 @@ def selectAnImageMsg(chat_id,context):
                    TextResponse('See more like this'),
                    TextResponse('New search')]
     if context['search_type'] == 'image':
-        responses.append(TextResponse('See results on gofindfashion.com'))
+        responses.append(TextResponse('See results on the GoFindFashion website'))
     select_an_image_msg = TextMessage(
         to=from_user,
         chat_id=chat_id,
@@ -204,8 +204,14 @@ def buyThis(chat_id,context):
             link = prev_context['text_query_result']['products'][i]['clickUrl']
             title = prev_context['text_query_result']['products'][i]['brandedName']
             link_message = LinkMessage(to=from_user,chat_id=chat_id,url=link,title=title)
-        tip = TextMessage(to=from_user,chat_id=chat_id,body="Remember you can search again anytime by sending me a pic ;) or type 'more' to keep shopping")
         here = TextMessage(to=from_user,chat_id=chat_id,body="Here ya go:")
+        tip = TextMessage(to=from_user,chat_id=chat_id,body="Remember you can search again anytime by sending me a pic ;)")
+        tip.keyboards.append(
+            SuggestedResponseKeyboard(
+                responses=[TextResponse('See more of these results'),
+                        TextResponse('Search again using that pic'),
+                        TextResponse('New search')]
+        ))
         kik.send_messages([here,link_message,tip])
 
 @debug_info        
@@ -238,7 +244,8 @@ def showShopStyleResults(chat_id,from_user,context):
     text_query_result_index = int(context['text_query_result_index'])
     i = 0
     if text_query_result_index+SHOW_THIS_MANY >= len(result_image_urls):
-        say(chat_id,context,"Well, maybe not. Gosh, you're hard to please :/ Try sending me back a pic of something I've showed you already to keep looking.")
+        message = "Well, maybe not. Gosh, you're hard to please :/ Try sending me back a pic of something I've showed you already to keep looking."
+        sendSuggestedResponseHowTo(chat_id,from_user,message)
         return api_json
     for an_image in result_image_urls[text_query_result_index:]:
         if i >= SHOW_THIS_MANY:
@@ -308,10 +315,18 @@ def seeResultsOnWebsite(chat_id,context):
     from_user = context['from_user']
     img_url = context['user_img_url']
     msg = LinkMessage(to=from_user,chat_id=chat_id,url='http://gofindfashion.com?'+img_url,title="Go Find Fashion Seach Engine")
+    msg.keyboards.append(
+            SuggestedResponseKeyboard(
+                responses=[TextResponse('See more of these results'),
+                        TextResponse('Search again using that pic'),
+                        TextResponse('New search')]
+        ))
     kik.send_messages([msg])
+
 @debug_info
 def sayHi(chat_id,context):
-    say(chat_id,context,canned_responses.hello())
+    from_user = context['from_user']
+    sendSuggestedResponseHowTo(chat_id,from_user,canned_responses.hello())
 
 @debug_info
 def sendWelcomeMessage(chat_id,context):
@@ -321,8 +336,8 @@ def sendWelcomeMessage(chat_id,context):
     """
     from_user = context['from_user']
     msgs = ["Hey, I'm AnnaFashionBot and I'm your personal stylist bot!",
-            "I can help you find a new outfit. Let's get started!",
-            "Send a pic of a dress you want to find or just describe it."
+            "I can help you find new dresses. Let's get started!",
+            "Send a pic of a woman's dress you want to find or just describe it."
             ]
     send_these = []
     for msg in msgs:
@@ -389,10 +404,26 @@ def newSearch(chat_id,context):
                     "Send me a pic with only the dress you're looking for, OR type in what you're looking for, OR pick \"Anna's Choice\" for a suprise ;)")
     t.keyboards.append(
         SuggestedResponseKeyboard(
-                responses=[TextResponse("Anna's Choice")]
+                responses=[TextResponse("Anna's Choice"),
+                           TextResponse("I'm good, I got this")]
                 )
         )   
     kik.send_messages([t])
+    
+
+def sendSuggestedResponseHowTo(chat_id,from_user,message):
+        show_me = TextMessage(
+        to=from_user,
+        chat_id=chat_id,
+        body=message
+        )
+        show_me.keyboards.append(
+                SuggestedResponseKeyboard(
+                responses=[TextResponse('Show me how'),
+                           TextResponse("I'm good, I got this")]
+                )
+        )
+        kik.send_messages([show_me])
 # Actions wit knows about and can call
 # must have the template: function(chat_id,context)
 actions = {
@@ -442,12 +473,14 @@ def index():
                 seeMoreResults(message.chat_id, context0)
             elif message.body == "See results on the GoFindFashion website":
                 seeResultsOnWebsite(message.chat_id,context0)
-            elif message.body == "Show me now!":
+            elif message.body in ("Show me now!", "Show me how"):
                 sendHowTo(message.chat_id,context0)
             elif message.body  == 'New search':
                 newSearch(message.chat_id,context0)
             elif message.body == "Anna's Choice":
                 showExample(message.chat_id, context0)
+            elif message.body == "I'm good, I got this":
+                say(message.chat_id,context0,"Cool. If you need help in the future just ask :)")
             else:
                 client.run_actions(message.chat_id, message.body, context0)
         elif isinstance(message, PictureMessage):

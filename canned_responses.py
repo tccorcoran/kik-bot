@@ -10,11 +10,11 @@ def see_more():
                "I've got outfits for days..."]
     return choice(phrases)
 def hello():
-    phrases = ['Hi. Send me a pic to search for',
+    phrases = ['Hi. Send me a pic of a dress to search for',
                "Hey, you can tell me something to look for like 'find me a green maxi dress'",
                "Heyyy, what are you looking for? ",
-               "What's up? Send me a pic of an outfit you'd like to find matches of",
-               "Hi! I'm Anna. I can find similar outfits if you send me a pic of one",
+               "What's up? Send me a pic of a woman's dress you'd like to find matches of",
+               "Hi! I'm Anna. I can find similar dresses if you send me a pic of one",
                "Hello, tell me what you're looking for. Like 'find a strapless party dress'",
                "Hey! My name's Anna :) I can find new styles for you. Tell me to 'find a floral sundress'",
                ]
