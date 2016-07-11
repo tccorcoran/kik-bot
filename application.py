@@ -388,8 +388,7 @@ def newSearch(chat_id,context):
                     "Send me a pic with only the dress you're looking for, OR type in what you're looking for, OR pick \"Anna's Choice\" for a suprise ;)")
     t.keyboards.append(
         SuggestedResponseKeyboard(
-                responses=[TextResponse("Anna's Choice"),
-                           TextResponse("I'm good, I got this")]
+                responses=[TextResponse("Anna's Choice")]
                 )
         )   
     kik.send_messages([t])
@@ -403,8 +402,7 @@ def sendSuggestedResponseHowTo(chat_id,from_user,message):
         )
         show_me.keyboards.append(
                 SuggestedResponseKeyboard(
-                responses=[TextResponse('Show me how'),
-                           TextResponse("I'm good, I got this")]
+                responses=[TextResponse('Show me how')]
                 )
         )
         kik.send_messages([show_me])
@@ -441,8 +439,6 @@ def selectActionFromText(chat_id,from_user,message,context):
         newSearch(chat_id,context)
     elif message == "Anna's Choice":
         showExample(chat_id, context)
-    elif message == "I'm good, I got this":
-        say(chat_id,context,"Cool. If you need help in the future just ask :)")
     elif message == "Welcome":
         sendWelcomeMessage(chat_id,context)
     else:
