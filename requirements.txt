@@ -7,6 +7,7 @@ itsdangerous==0.24
 Jinja2==2.8
 kik==1.0.7
 MarkupSafe==0.23
+messengerbot==0.1.4
 psycopg2==2.6.1
 requests==2.10.0
 simplejson==3.8.2
