@@ -10,9 +10,10 @@ from kik.messages import TextMessage, PictureMessage, messages_from_json,Suggest
 from wit import Wit
 
 from bot import app as application
-from bot import kik, access_token
+from bot import kik, access_token,FB_PAGE_TOKEN
 import canned_responses
 from wit_helpers import say,merge,error, storeContext, retrieveContext
+from platform_specifics import sendKikTextMessages,sendFBMessage,dispatchMessage
 
 ENV_TYPE = os.environ.get('ENV_TYPE')
 VERBOSE = False 
@@ -335,32 +336,15 @@ def sendWelcomeMessage(chat_id,context):
     ever sent once
     """
     from_user = context['from_user']
-    msgs = ["Hey, I'm AnnaFashionBot and I'm your personal stylist bot!",
+    msgs = ["Hey, I'm Anna FashionBot and I'm your personal stylist bot!",
             "I can help you find new dresses. Let's get started!",
-            "Send a pic of a woman's dress you want to find or just describe it."
+            "Send a pic of a woman's dress you want to find or just describe it.",
+            "Let me show you :)"
             ]
-    send_these = []
-    for msg in msgs:
-        send_these.append(
-            TextMessage(
-            to=from_user,
-            chat_id=chat_id,
-            body=msg
-            ))
-        
-    show_me = TextMessage(
-        to=from_user,
-        chat_id=chat_id,
-        body="Let me show you"
-        )
-    show_me.keyboards.append(
-        SuggestedResponseKeyboard(
-                responses=[TextResponse('Show me now!')]
-                )
-        )   
-    send_these.append(show_me)
-    kik.send_messages(send_these)
-    
+    suggested_responses = ['Show me now!']
+    dispatchMessage(context,'text',chat_id,from_user,msgs,suggested_responses=suggested_responses)
+#    sendKikTextMessages(chat_id,from_user,msgs,suggested_responses=suggested_responses)
+
 @debug_info
 def sendHowTo(chat_id,context):
     from_user = context['from_user']
@@ -441,9 +425,31 @@ actions = {
 }
 
 client = Wit(access_token, actions) # Invoke wit
-    
+
+def selectActionFromText(chat_id,from_user,message,context):
+    if message == 'Go to store':
+        buyThis(chat_id,context)
+    elif message == 'Search again using that pic':
+        searchAgain(chat_id,context)
+    elif message in ('See more of these results', 'These all suck'):
+        seeMoreResults(chat_id, context)
+    elif message == "See results on the GoFindFashion website":
+        seeResultsOnWebsite(chat_id,context)
+    elif message in ("Show me now!", "Show me how"):
+        sendHowTo(chat_id,context)
+    elif message  == 'New search':
+        newSearch(chat_id,context)
+    elif message == "Anna's Choice":
+        showExample(chat_id, context)
+    elif message == "I'm good, I got this":
+        say(chat_id,context,"Cool. If you need help in the future just ask :)")
+    elif message == "Welcome":
+        sendWelcomeMessage(chat_id,context)
+    else:
+        client.run_actions(chat_id, message, context)
+
 @application.route('/', methods=['POST'])
-def index():
+def index_kik():
     """
     Main entry point for Kik POSTing to us.
     Get messages in batches an iter through each message, deciding what to do
@@ -463,26 +469,10 @@ def index():
         # check to see if we've seen this user before, collect their previous context
         if retrieveContext(message.chat_id,message.from_user):
             context0 = retrieveContext(message.chat_id,message.from_user)
+        context0['platform'] = 'KIK'
         if isinstance(message, TextMessage):
             storeContext(message.chat_id,message.from_user,context0,msg=message.body)
-            if message.body == 'Go to store':
-                buyThis(message.chat_id,context0)
-            elif message.body == 'Search again using that pic':
-                searchAgain(message.chat_id,context0)
-            elif message.body in ('See more of these results', 'These all suck'):
-                seeMoreResults(message.chat_id, context0)
-            elif message.body == "See results on the GoFindFashion website":
-                seeResultsOnWebsite(message.chat_id,context0)
-            elif message.body in ("Show me now!", "Show me how"):
-                sendHowTo(message.chat_id,context0)
-            elif message.body  == 'New search':
-                newSearch(message.chat_id,context0)
-            elif message.body == "Anna's Choice":
-                showExample(message.chat_id, context0)
-            elif message.body == "I'm good, I got this":
-                say(message.chat_id,context0,"Cool. If you need help in the future just ask :)")
-            else:
-                client.run_actions(message.chat_id, message.body, context0)
+            selectActionFromText(message.chat_id,message.from_user,message.body,context0)
         elif isinstance(message, PictureMessage):
             # Always do a fitroom search when we get a picture message
             context0['user_img_url'] = message.pic_url
@@ -500,6 +490,27 @@ def index():
     return Response(status=200) # If we return anything besides 200, Kik will try 3 more time to send the message
 
 
+@application.route('/facebook', methods=['POST','GET'])
+def index_fb():
+    chat_id = None
+    if request.method == 'GET':
+        if request.args.get('hub.mode') == 'subscribe' and request.args.get('hub.verify_token') == 'AnnaFashionBot':
+            return Response(request.args.get('hub.challenge'),status=200)
+    elif request.method == 'POST':
+        output = request.json
+        entires = output['entry']
+        for entry in entires:
+            for msg_obj in entry['messaging']:
+                if (msg_obj.get('message') and msg_obj['message'].get('text')):
+                    msg = msg_obj['message']['text']
+                    from_user = msg_obj['sender']['id']
+                    context0 = {'from_user':from_user,'chat_id':chat_id}
+                    if retrieveContext(chat_id,from_user):
+                        context0 = retrieveContext(chat_id,from_user)
+                    context0['platform'] = 'FB'
+                    sendFBMessage(chat_id,from_user,[msg],suggested_responses=[])
+                    selectActionFromText(chat_id,from_user, msg,context0)
+    return Response(status=200)
 if __name__ == "__main__":
     application.run()
 

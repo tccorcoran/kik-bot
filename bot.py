@@ -17,6 +17,7 @@ DATABASE = {
 DB_URI = 'postgres://{USER}:{PASSWORD}@{HOST}:5432/{NAME}'.format(**DATABASE)
 
 access_token = os.environ.get('WIT_SERVER_ACCESS_TOKEN')
+FB_PAGE_TOKEN = os.environ.get('FB_PAGE_TOKEN')
 BOT_USERNAME = os.environ.get('BOT_USERNAME')
 BOT_API_KEY = os.environ.get('KIK_API_KEY')
 WEBHOOK = os.environ.get('WEBHOOK')
