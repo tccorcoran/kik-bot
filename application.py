@@ -10,10 +10,10 @@ from kik.messages import TextMessage, PictureMessage, messages_from_json,Suggest
 from wit import Wit
 
 from bot import app as application
-from bot import kik, access_token,FB_PAGE_TOKEN
+from bot import kik, access_token
 import canned_responses
 from wit_helpers import say,merge,error, storeContext, retrieveContext
-from platform_specifics import sendKikTextMessages,sendFBMessage,dispatchMessage
+from platform_specifics import sendFBMessage,dispatchMessage
 
 ENV_TYPE = os.environ.get('ENV_TYPE')
 VERBOSE = False 
@@ -246,7 +246,7 @@ def showShopStyleResults(chat_id,from_user,context):
     i = 0
     if text_query_result_index+SHOW_THIS_MANY >= len(result_image_urls):
         message = "Well, maybe not. Gosh, you're hard to please :/ Try sending me back a pic of something I've showed you already to keep looking."
-        sendSuggestedResponseHowTo(chat_id,from_user,message)
+        sendSuggestedResponseHowTo(chat_id,from_user,message,context)
         return api_json
     for an_image in result_image_urls[text_query_result_index:]:
         if i >= SHOW_THIS_MANY:
@@ -327,7 +327,7 @@ def seeResultsOnWebsite(chat_id,context):
 @debug_info
 def sayHi(chat_id,context):
     from_user = context['from_user']
-    sendSuggestedResponseHowTo(chat_id,from_user,canned_responses.hello())
+    sendSuggestedResponseHowTo(chat_id,from_user,canned_responses.hello(),context)
 
 @debug_info
 def sendWelcomeMessage(chat_id,context):
@@ -343,21 +343,16 @@ def sendWelcomeMessage(chat_id,context):
             ]
     suggested_responses = ['Show me now!']
     dispatchMessage(context,'text',chat_id,from_user,msgs,suggested_responses=suggested_responses)
-#    sendKikTextMessages(chat_id,from_user,msgs,suggested_responses=suggested_responses)
 
 @debug_info
 def sendHowTo(chat_id,context):
     from_user = context['from_user']
     example_img = 'https://s-media-cache-ak0.pinimg.com/236x/49/d3/bf/49d3bf2bb0d88aa79c5fb7b41195e48c.jpg'
-    send_these = [TextMessage(
-                    to=from_user,chat_id=chat_id,
-                    body='First, find a picture of the dress. Make sure the dress is the only thing in the picture. Like this:')]
-    send_these.append(
-        PictureMessage(
-            to=from_user,
-            chat_id=chat_id,
-            pic_url=example_img))
-    kik.send_messages(send_these)
+
+    dispatchMessage(context,'text',chat_id,from_user,['First, find a picture of the dress. Make sure the dress is the only thing in the picture. Like this:'])
+    dispatchMessage(context,'image',chat_id,from_user,[example_img])
+    dispatchMessage(context,'text',chat_id,from_user,["Then I'll try to find simiar dresses from my virtual racks. Like these:"])
+
     context['user_img_url'] = example_img
     context['search_type'] = 'image'
     getFitroomResults(chat_id,context)
@@ -374,10 +369,8 @@ def showExample(chat_id,context):
     example_img =  random.choice(examples)
     context['user_img_url'] = example_img
     context['search_type'] = 'image'
-
-    kik.send_messages([PictureMessage(to=from_user,chat_id=chat_id,pic_url=example_img),
-                        TextMessage(to=from_user,chat_id=chat_id, body="Let's start with something like this ^^")
-                        ])
+    dispatchMessage(context,'image',chat_id,from_user,[example_img])
+    dispatchMessage(context,'text',chat_id,from_user,["Let's start with something like this ^^"])
     getFitroomResults(chat_id,context)
 
 @debug_info   
@@ -394,18 +387,9 @@ def newSearch(chat_id,context):
     kik.send_messages([t])
     
 
-def sendSuggestedResponseHowTo(chat_id,from_user,message):
-        show_me = TextMessage(
-        to=from_user,
-        chat_id=chat_id,
-        body=message
-        )
-        show_me.keyboards.append(
-                SuggestedResponseKeyboard(
-                responses=[TextResponse('Show me how')]
-                )
-        )
-        kik.send_messages([show_me])
+def sendSuggestedResponseHowTo(chat_id,from_user,message,context):
+    dispatchMessage(context,'text',chat_id,from_user,[message],suggested_responses=['Show me how'])
+        
 # Actions wit knows about and can call
 # must have the template: function(chat_id,context)
 actions = {
@@ -425,6 +409,8 @@ actions = {
 client = Wit(access_token, actions) # Invoke wit
 
 def selectActionFromText(chat_id,from_user,message,context):
+    if chat_id is None:
+        chat_id = from_user
     if message == 'Go to store':
         buyThis(chat_id,context)
     elif message == 'Search again using that pic':
@@ -442,6 +428,7 @@ def selectActionFromText(chat_id,from_user,message,context):
     elif message == "Welcome":
         sendWelcomeMessage(chat_id,context)
     else:
+        print message
         client.run_actions(chat_id, message, context)
 
 @application.route('/', methods=['POST'])
@@ -488,6 +475,7 @@ def index_kik():
 
 @application.route('/facebook', methods=['POST','GET'])
 def index_fb():
+#    return Response(status=200)
     chat_id = None
     if request.method == 'GET':
         if request.args.get('hub.mode') == 'subscribe' and request.args.get('hub.verify_token') == 'AnnaFashionBot':
@@ -497,15 +485,22 @@ def index_fb():
         entires = output['entry']
         for entry in entires:
             for msg_obj in entry['messaging']:
-                if (msg_obj.get('message') and msg_obj['message'].get('text')):
+                if msg_obj.get('message') and msg_obj['message'].get('text'):
                     msg = msg_obj['message']['text']
-                    from_user = msg_obj['sender']['id']
-                    context0 = {'from_user':from_user,'chat_id':chat_id}
-                    if retrieveContext(chat_id,from_user):
-                        context0 = retrieveContext(chat_id,from_user)
-                    context0['platform'] = 'FB'
-                    sendFBMessage(chat_id,from_user,[msg],suggested_responses=[])
-                    selectActionFromText(chat_id,from_user, msg,context0)
+                elif  msg_obj.get('postback')and msg_obj['postback'].get('payload'):
+                    msg = msg_obj['postback'].get('payload')
+                else:
+                    continue
+                from_user = msg_obj['sender']['id']
+                chat_id = from_user
+                context0 = {'from_user':from_user,'chat_id':chat_id}
+                if retrieveContext(chat_id,from_user):
+                    context0 = retrieveContext(chat_id,from_user)
+                context0['platform'] = 'FB'
+                storeContext(chat_id,from_user,context0,msg=msg)
+                sendFBMessage(chat_id,from_user,[msg],suggested_responses=[])
+                selectActionFromText(chat_id,from_user, msg,context0)
+        return Response(status=200)
     return Response(status=200)
 if __name__ == "__main__":
     application.run()
