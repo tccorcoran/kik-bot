@@ -1,7 +1,7 @@
-from kik.messages import TextMessage, PictureMessage, messages_from_json,SuggestedResponseKeyboard,\
+from kik.messages import TextMessage, PictureMessage, SuggestedResponseKeyboard,\
                         TextResponse, LinkMessage,StartChattingMessage, CustomAttribution
 
-from bot import kik, access_token,FB_PAGE_TOKEN
+from bot import kik,FB_PAGE_TOKEN
 from messengerbot import MessengerClient, attachments, templates, elements
 from messengerbot import messages as fbmessages
 fbmessenger = MessengerClient(access_token=FB_PAGE_TOKEN)
@@ -29,7 +29,7 @@ def sendKikMessages(chat_id,from_user,msgs,suggested_responses=[],msg_type=None)
             content=msg,
             msg_type=msg_type
             ))
-    if suggested_responses:
+    if msg_type == 'text' and suggested_responses:
         text_resonses = [TextResponse(r) for r in suggested_responses]
         for sr in suggested_responses:
             send_these[-1].keyboards.append(
@@ -43,29 +43,55 @@ def sendFBMessage(chat_id,from_user,msgs,suggested_responses=[],msg_type=None):
     # TODO: if suggested_response, create object to handle choices
     # if suggested responses > 3
     recipient = fbmessages.Recipient(recipient_id=from_user)
-    if not suggested_responses:
-        text_messages = msgs
-    else:
-        text_messages = msgs[:-1]
-    for msg in text_messages:
-        recipient = fbmessages.Recipient(recipient_id=from_user)
-        message = fbmessages.Message(text=msg)
-        request = fbmessages.MessageRequest(recipient, message)
-        fbmessenger.send(request)
-        
-    if suggested_responses:
-        buttons = []
-        for suggested_response in suggested_responses:
+    if msg_type == 'text':
+        if not suggested_responses:
+            text_messages = msgs
+        else:
+            text_messages = msgs[:-1]
+        for msg in text_messages:
+            message = fbmessages.Message(text=msg)
+            request = fbmessages.MessageRequest(recipient, message)
+            fbmessenger.send(request)
             
+        if suggested_responses:
+            buttons = []
+            for suggested_response in suggested_responses:
+                
+                buttons.append(elements.PostbackButton(
+                    title=suggested_response,
+                    payload=suggested_response
+                ))
+                
+            template = templates.ButtonTemplate(
+                text=msgs[-1],
+                buttons=buttons
+            )
+            attachment = attachments.TemplateAttachment(template=template)
+            message = fbmessages.Message(attachment=attachment)
+            request = fbmessages.MessageRequest(recipient, message)
+            fbmessenger.send(request)
+    if msg_type == 'image':
+        elmnts = []
+
+        for i, url in enumerate(msgs):
+            buttons = []
             buttons.append(elements.PostbackButton(
-                title=suggested_response,
-                payload=suggested_response
-            ))
+                    title="I like this one",
+                    payload="I like number {}st".format(i+1)
+                ))
+            buttons.append(elements.WebUrlButton(
+                    title="See on gofind site",
+                    url="gofindfashion.com/?{}".format(url)
+                ))
+            buttons.append(elements.PostbackButton(
+                    title="See more",
+                    payload="See more like this"
+                ))
+            title = suggested_responses[i]
+            element = elements.Element(title=title[:43],image_url=url,buttons=buttons)
+            elmnts.append(element)
             
-        template = templates.ButtonTemplate(
-            text=msgs[-1],
-            buttons=buttons
-        )
+        template = templates.GenericTemplate(elements=elmnts)
         attachment = attachments.TemplateAttachment(template=template)
         message = fbmessages.Message(attachment=attachment)
         request = fbmessages.MessageRequest(recipient, message)

@@ -53,6 +53,8 @@ def showFitRoomResults(chat_id,from_user,context):
     if image_query_result_index+SHOW_THIS_MANY >= len(result_image_urls):
         say(chat_id,context,"Well, maybe not. Gosh, you're hard to please :/ Try sending me back a pic of something I've showed you already to keep looking.")
         return responseFromAPI
+    urls=[]
+    titles=[]
     for an_image in result_image_urls[image_query_result_index:]:
         if i >= SHOW_THIS_MANY:
             break
@@ -63,22 +65,18 @@ def showFitRoomResults(chat_id,from_user,context):
             responseFromAPI['images'].pop(i)
             continue
         
-        picture_message = PictureMessage(to=from_user, chat_id=chat_id, pic_url=an_image)
-        picture_message.attribution = CustomAttribution(name=responseFromAPI['images'][i]['title'])
-        try:
-            kik.send_messages([picture_message])
-        except KikError:
-            # Remove image results that give 404
-            responseFromAPI['images'].pop(i)
-            continue
+        urls.append(an_image)
+        titles.append(responseFromAPI['images'][i]['title'])
         print an_image, responseFromAPI['images'][i]['pageUrl']
         i +=1
-        
+    dispatchMessage(context,'image',chat_id,from_user,urls,suggested_responses=titles)
+    
     context['image_query_result_index'] = i + image_query_result_index # remember which results we've showed
     context['image_query_result'] = responseFromAPI
     storeContext(chat_id,from_user,context,action='showFitroomResults')
-    selectAnImageMsg(chat_id,context)
-    return responseFromAPI
+    if context['platform'] == 'KIK':
+        selectAnImageMsg(chat_id,context)
+        return responseFromAPI
 
 @debug_info
 def getFitroomResults(chat_id,context):
@@ -140,9 +138,8 @@ def doSearchEncounter(chat_id,context):
     text query by typing 'find me a xxxx', in that case Wit calls doTextSearchEncounter
     which inturn calls doSearchEncounter. doSearchEncounter is called directly when a user sends a pic
     """
-    from_user = context['from_user']
     search_type = context['search_type']
-    kik.send_messages([TextMessage(to=from_user, chat_id=chat_id, body=canned_responses.lookup())])
+    say(chat_id,context,canned_responses.lookup())
     if search_type == 'image':
         status = getFitroomResults(chat_id,context)
     elif search_type == 'text':
@@ -209,8 +206,8 @@ def buyThis(chat_id,context):
         tip = TextMessage(to=from_user,chat_id=chat_id,body="Remember you can search again anytime by sending me a pic ;)")
         tip.keyboards.append(
             SuggestedResponseKeyboard(
-                responses=[TextResponse('See more of these results'),
-                        TextResponse('Search again using that pic'),
+                responses=[TextResponse('See more results'),
+                        TextResponse('Search with this pic'),
                         TextResponse('New search')]
         ))
         kik.send_messages([here,link_message,tip])
@@ -222,20 +219,8 @@ def searchOrbuy(chat_id,context):
     Present the user with the option to visit the store webpage or search again using the selected picture
     """
     from_user = context['from_user']
-    search_or_buy = TextMessage(
-        to=from_user,
-        chat_id=chat_id,
-        body=canned_responses.like_it()
-        )
-    search_or_buy.keyboards.append(
-        SuggestedResponseKeyboard(
-                responses=[TextResponse('Go to store'),
-                        TextResponse('Search again using that pic'),
-                        TextResponse('See more of these results'),
-                        TextResponse('New search')]
-                )
-        )   
-    kik.send_messages([search_or_buy])
+    suggested_responses = ['Go to store','Search with this pic','See more results']
+    dispatchMessage(context,'text',chat_id,from_user,[canned_responses.like_it()],suggested_responses=suggested_responses)
 
 @debug_info    
 def showShopStyleResults(chat_id,from_user,context):
@@ -318,8 +303,8 @@ def seeResultsOnWebsite(chat_id,context):
     msg = LinkMessage(to=from_user,chat_id=chat_id,url='http://gofindfashion.com?'+img_url,title="Go Find Fashion Seach Engine")
     msg.keyboards.append(
             SuggestedResponseKeyboard(
-                responses=[TextResponse('See more of these results'),
-                        TextResponse('Search again using that pic'),
+                responses=[TextResponse('See more results'),
+                        TextResponse('Search with this pic'),
                         TextResponse('New search')]
         ))
     kik.send_messages([msg])
@@ -350,7 +335,7 @@ def sendHowTo(chat_id,context):
     example_img = 'https://s-media-cache-ak0.pinimg.com/236x/49/d3/bf/49d3bf2bb0d88aa79c5fb7b41195e48c.jpg'
 
     dispatchMessage(context,'text',chat_id,from_user,['First, find a picture of the dress. Make sure the dress is the only thing in the picture. Like this:'])
-    dispatchMessage(context,'image',chat_id,from_user,[example_img])
+    dispatchMessage(context,'image',chat_id,from_user,[example_img],suggested_responses=['example pic'])
     dispatchMessage(context,'text',chat_id,from_user,["Then I'll try to find simiar dresses from my virtual racks. Like these:"])
 
     context['user_img_url'] = example_img
@@ -359,6 +344,8 @@ def sendHowTo(chat_id,context):
 
 @debug_info
 def showExample(chat_id,context):
+    """Anna's choice
+    """
     from_user = context['from_user']
     examples = ['https://67.media.tumblr.com/1ac999c8b7993df3a1d933f1f26ed9aa/tumblr_o9mckr1dNV1ra7lgpo1_500.jpg',
                 'https://66.media.tumblr.com/8d49c01c751ad772082497cd1a81fe77/tumblr_o9mbu5xJGu1ugb53eo1_1280.jpg',
@@ -369,23 +356,17 @@ def showExample(chat_id,context):
     example_img =  random.choice(examples)
     context['user_img_url'] = example_img
     context['search_type'] = 'image'
-    dispatchMessage(context,'image',chat_id,from_user,[example_img])
+    dispatchMessage(context,'image',chat_id,from_user,[example_img],suggested_responses=['Example pic'])
     dispatchMessage(context,'text',chat_id,from_user,["Let's start with something like this ^^"])
     getFitroomResults(chat_id,context)
 
 @debug_info   
 def newSearch(chat_id,context):
     from_user = context['from_user']
-    t= TextMessage(to=from_user,chat_id=chat_id,
-                    body=
-                    "Send me a pic with only the dress you're looking for, OR type in what you're looking for, OR pick \"Anna's Choice\" for a suprise ;)")
-    t.keyboards.append(
-        SuggestedResponseKeyboard(
-                responses=[TextResponse("Anna's Choice")]
-                )
-        )   
-    kik.send_messages([t])
-    
+    dispatchMessage(context,'text',chat_id,from_user,
+                    ["Send me a pic with only the dress you're looking for, OR type in what you're looking for, OR pick \"Anna's Choice\" for a suprise ;)"],
+                    suggested_responses=["Anna's Choice"])
+
 
 def sendSuggestedResponseHowTo(chat_id,from_user,message,context):
     dispatchMessage(context,'text',chat_id,from_user,[message],suggested_responses=['Show me how'])
@@ -413,9 +394,9 @@ def selectActionFromText(chat_id,from_user,message,context):
         chat_id = from_user
     if message == 'Go to store':
         buyThis(chat_id,context)
-    elif message == 'Search again using that pic':
+    elif message == 'Search with this pic':
         searchAgain(chat_id,context)
-    elif message in ('See more of these results', 'These all suck'):
+    elif message == 'See more results':
         seeMoreResults(chat_id, context)
     elif message == "See results on the GoFindFashion website":
         seeResultsOnWebsite(chat_id,context)

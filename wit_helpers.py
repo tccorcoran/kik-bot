@@ -2,6 +2,7 @@
 from kik.messages import TextMessage
 from models import Context
 from bot import kik, db
+from platform_specifics import dispatchMessage
 
 def first_entity_value(entities, entity):
     if entity not in entities:
@@ -43,12 +44,8 @@ def retrieveContext(chat_id,from_user):
     
 def say(chat_id, context, msg):
     from_user = context['from_user']
-    kik.send_messages([
-        TextMessage(
-            to=from_user,
-            chat_id=chat_id,
-            body=msg
-            )])
+    dispatchMessage(context,'text',chat_id,from_user,[msg])
+
 
 def merge(session_id, context, entities, msg):
     from_user = context['from_user']
