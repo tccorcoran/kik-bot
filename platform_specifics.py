@@ -18,6 +18,8 @@ def abstract_kik_message(to,chat_id,content,msg_type):
         return TextMessage(to=to,chat_id=chat_id,body=content)
     if msg_type == 'image':
         return PictureMessage(to=to,chat_id=chat_id,pic_url=content)
+    if msg_type == 'link':
+        return LinkMessage(to=to,chat_id=chat_id,url=content)
     
 def sendKikMessages(chat_id,from_user,msgs,suggested_responses=[],msg_type=None):
         
@@ -31,15 +33,15 @@ def sendKikMessages(chat_id,from_user,msgs,suggested_responses=[],msg_type=None)
             ))
     if msg_type == 'text' and suggested_responses:
         text_resonses = [TextResponse(r) for r in suggested_responses]
-        for sr in suggested_responses:
-            send_these[-1].keyboards.append(
-                SuggestedResponseKeyboard(
-                responses=text_resonses
-                )
+
+        send_these[-1].keyboards.append(
+            SuggestedResponseKeyboard(
+            responses=text_resonses
             )
+        )
     kik.send_messages(send_these)
     
-def sendFBMessage(chat_id,from_user,msgs,suggested_responses=[],msg_type=None):
+def sendFBMessage(chat_id,from_user,msgs,suggested_responses=[],msg_type=None,extras=[]):
     # TODO: if suggested_response, create object to handle choices
     # if suggested responses > 3
     recipient = fbmessages.Recipient(recipient_id=from_user)
@@ -84,7 +86,7 @@ def sendFBMessage(chat_id,from_user,msgs,suggested_responses=[],msg_type=None):
                     url="gofindfashion.com/?{}".format(url)
                 ))
             buttons.append(elements.PostbackButton(
-                    title="See more",
+                    title="See more results",
                     payload="See more like this"
                 ))
             title = suggested_responses[i]
@@ -96,3 +98,31 @@ def sendFBMessage(chat_id,from_user,msgs,suggested_responses=[],msg_type=None):
         message = fbmessages.Message(attachment=attachment)
         request = fbmessages.MessageRequest(recipient, message)
         fbmessenger.send(request)
+    if msg_type == 'link':
+        
+
+        for i, url in enumerate(msgs):
+
+            elmnts = []
+            buttons = []
+            buttons.append(elements.WebUrlButton(
+            title="Go to store",
+            url=url
+                ))
+            buttons.append(elements.PostbackButton(
+                    title="Search with this pic",
+                    payload="Search with this pic"
+                ))
+            buttons.append(elements.PostbackButton(
+                    title="See more results",
+                    payload="See more like this"
+                ))
+            title = suggested_responses[i]
+            element = elements.Element(title=title[:43],image_url=extras[i],buttons=buttons)
+            elmnts.append(element)
+            
+            template = templates.GenericTemplate(elements=elmnts)
+            attachment = attachments.TemplateAttachment(template=template)
+            message = fbmessages.Message(attachment=attachment)
+            request = fbmessages.MessageRequest(recipient, message)
+            fbmessenger.send(request)

@@ -2,6 +2,7 @@ import os
 import requests
 import random
 from functools import wraps
+import base64
 
 from flask import request, Response
 from kik import KikError
@@ -20,6 +21,7 @@ VERBOSE = False
 SHOW_THIS_MANY = 3 # How many pictures to show at once
 
 if ENV_TYPE == 'DEV':
+    from pdb import set_trace
     application.debug = True
     VERBOSE = True
 
@@ -58,10 +60,10 @@ def showFitRoomResults(chat_id,from_user,context):
     for an_image in result_image_urls[image_query_result_index:]:
         if i >= SHOW_THIS_MANY:
             break
-        # some images are blank, they have exactly 5086 bytes. This hack
+        # some images are blank, they have exactly 5086 or 3084 bytes. This hack
         # skips any images that size. Hacky fix until they fix it on the backend.
         is_blank =requests.head(an_image, headers={'Accept-Encoding': 'identity'})
-        if is_blank.headers['content-length'] == '5086':
+        if is_blank.headers['content-length'] in ('5086', '3084'):
             responseFromAPI['images'].pop(i)
             continue
         
@@ -86,16 +88,22 @@ def getFitroomResults(chat_id,context):
     image_url = context['user_img_url']
     chat_id = context['chat_id']
     from_user = context['from_user']
-
-#   CALL Fitroom API
-    try:
-        r = requests.get('https://fitroom-api.herokuapp.com/api/images?type=women&key=1234&imageURL=' + image_url)
-        responseFromAPI = r.json()
-    except:
-        say(chat_id,context,canned_responses.error_message())
-        say(chat_id,context,"Try sending the pic again")
-        return Response(status=500)
     
+    # NOTE: this donwloads the image anytime the user is on Facebook
+    # really we only need to download if the user sent us the picture (we don't need to download images from textseach results or other preloaded queries)
+    if context['platform'] == 'FB':
+        img2 = requests.get(image_url).content
+        img64 = base64.b64encode(img2)
+        api_url = "http://mongodb-dev.us-west-1.elasticbeanstalk.com/api/B64Search/"
+        payload = {"DataString": 'data:image/jpeg;base64,'+img64}
+    elif context['platform'] == 'KIK':
+        api_url = "http://mongodb-dev.us-west-1.elasticbeanstalk.com/api/UrlSearch/"
+        payload = {'url':image_url}
+        
+    r = requests.post(api_url,json=payload)
+    responseFromAPI = r.json()
+
+
     if r.status_code != 200:
         # Something went wrong with fitroom API!
         say(chat_id,context,canned_responses.error_message()+"Ouch, that hurt my brain. You almost blew my circuts!")
@@ -107,6 +115,63 @@ def getFitroomResults(chat_id,context):
     showFitRoomResults(chat_id,from_user,context)
     return Response(status=200)
         
+@debug_info
+def getShopStyleResults(chat_id,context):
+    """
+    Run a text search against shopstyle api
+    similar in function to getFitroomResults
+    """
+    from_user = context['from_user']
+    context = retrieveContext(chat_id,from_user)
+    if 'search_keywords' not in context:
+        say(chat_id,context,canned_responses.error_message()+'text_search')
+        return Response(Status=200)
+    search_keywords = '+'.join(context['search_keywords'].split())
+    API_URL = 'http://api.shopstyle.com/api/v2/products?pid=uid7984-31606272-0&format=json&fts={0}&offset=0&limit=10'.format(search_keywords)
+    r = requests.get(API_URL)
+    api_json = r.json()
+    context['text_query_result'] = api_json
+    context['text_query_result_index'] = 0
+    showShopStyleResults(chat_id,from_user,context)
+
+
+    return Response(status=200)
+
+@debug_info    
+def showShopStyleResults(chat_id,from_user,context):
+    api_json = context['text_query_result']
+    result_image_urls = [value['image']['sizes']['IPhone']['url'] for value in api_json['products']]
+    
+    text_query_result_index = int(context['text_query_result_index'])
+    i = 0
+    if text_query_result_index+SHOW_THIS_MANY >= len(result_image_urls):
+        message = "Well, maybe not. Gosh, you're hard to please :/ Try sending me back a pic of something I've showed you already to keep looking."
+        sendSuggestedResponseHowTo(chat_id,from_user,message,context)
+        return api_json
+    urls=[]
+    titles=[]
+    for an_image in result_image_urls[text_query_result_index:]:
+        if i >= SHOW_THIS_MANY:
+            break
+        title = api_json['products'][i]['brandedName']
+        urls.append(an_image)
+        titles.append(title)
+        if context['platform'] == 'KIK':
+            picture_message = PictureMessage(to=from_user, chat_id=chat_id, pic_url=an_image)
+            picture_message.attribution = CustomAttribution(name=title)
+            kik.send_messages([picture_message])
+
+        i +=1
+    if context['platform'] == 'FB':
+        dispatchMessage(context,'image',chat_id,from_user,urls,suggested_responses=titles)
+    context['text_query_result_index'] = i + text_query_result_index # remember which results we've showed
+    context['text_query_result'] = api_json
+    storeContext(chat_id,from_user,context,action='showShopStyleResults')
+    if context['platform'] == 'KIK':
+        selectAnImageMsg(chat_id,context)
+        return api_json
+
+
 @debug_info
 def selectAnImageMsg(chat_id,context):
     from_user = context['from_user']
@@ -194,23 +259,29 @@ def buyThis(chat_id,context):
             i = int(prev_context['image_query_result_index'])-SHOW_THIS_MANY+i
             link = prev_context['image_query_result']['images'][i]['pageUrl']
             title =  prev_context['image_query_result']['images'][i]['title']
-            # using a text message to send fitroom results because Kik breaks out links by putting a trailing /
+            img_url = prev_context['image_query_result']['images'][i]['imageUrl']
+            # using a text message to send fitroom results because Kik breaks out links by putting a trailing "/"
             link_message = TextMessage(to=from_user,chat_id=chat_id,body=link)
 #            link_message = LinkMessage(to=from_user,chat_id=chat_id,url=link,title=title)
         elif prev_context['search_type'] == 'text':
+            
             i = int(prev_context['text_query_result_index'])-SHOW_THIS_MANY+i
+            img_url = prev_context['text_query_result']['products'][i]['image']['sizes']['IPhone']['url']
             link = prev_context['text_query_result']['products'][i]['clickUrl']
             title = prev_context['text_query_result']['products'][i]['brandedName']
             link_message = LinkMessage(to=from_user,chat_id=chat_id,url=link,title=title)
-        here = TextMessage(to=from_user,chat_id=chat_id,body="Here ya go:")
-        tip = TextMessage(to=from_user,chat_id=chat_id,body="Remember you can search again anytime by sending me a pic ;)")
-        tip.keyboards.append(
-            SuggestedResponseKeyboard(
-                responses=[TextResponse('See more results'),
-                        TextResponse('Search with this pic'),
-                        TextResponse('New search')]
-        ))
-        kik.send_messages([here,link_message,tip])
+        if context['platform'] == 'KIK':
+            here = TextMessage(to=from_user,chat_id=chat_id,body="Here ya go:")
+            tip = TextMessage(to=from_user,chat_id=chat_id,body="Remember you can search again anytime by sending me a pic ;)")
+            tip.keyboards.append(
+                SuggestedResponseKeyboard(
+                    responses=[TextResponse('See more results'),
+                            TextResponse('Search with this pic'),
+                            TextResponse('New search')]
+            ))
+            kik.send_messages([here,link_message,tip])
+        elif context['platform'] == 'FB':
+            dispatchMessage(context,'link',chat_id,from_user,[link],suggested_responses=[title],extras=[img_url])
 
 @debug_info        
 def searchOrbuy(chat_id,context):
@@ -219,60 +290,14 @@ def searchOrbuy(chat_id,context):
     Present the user with the option to visit the store webpage or search again using the selected picture
     """
     from_user = context['from_user']
-    suggested_responses = ['Go to store','Search with this pic','See more results']
-    dispatchMessage(context,'text',chat_id,from_user,[canned_responses.like_it()],suggested_responses=suggested_responses)
-
-@debug_info    
-def showShopStyleResults(chat_id,from_user,context):
-    api_json = context['text_query_result']
-    result_image_urls = [value['image']['sizes']['IPhone']['url'] for value in api_json['products']]
-    
-    text_query_result_index = int(context['text_query_result_index'])
-    i = 0
-    if text_query_result_index+SHOW_THIS_MANY >= len(result_image_urls):
-        message = "Well, maybe not. Gosh, you're hard to please :/ Try sending me back a pic of something I've showed you already to keep looking."
-        sendSuggestedResponseHowTo(chat_id,from_user,message,context)
-        return api_json
-    for an_image in result_image_urls[text_query_result_index:]:
-        if i >= SHOW_THIS_MANY:
-            break
-        picture_message = PictureMessage(to=from_user, chat_id=chat_id, pic_url=an_image)
-        picture_message.attribution = CustomAttribution(name=api_json['products'][i]['brandedName'])
-        try:
-            kik.send_messages([picture_message])
-        except KikError:
-            api_json['products'].pop(i)
-            continue
-        i +=1
-        
-    context['text_query_result_index'] = i + text_query_result_index # remember which results we've showed
-    context['text_query_result'] = api_json
-    storeContext(chat_id,from_user,context,action='showShopStyleResults')
-    selectAnImageMsg(chat_id,context)
-
-    return api_json
-
-@debug_info
-def getShopStyleResults(chat_id,context):
-    """
-    Run a text search against shopstyle api
-    similar in function to getFitroomResults
-    """
-    from_user = context['from_user']
-    context = retrieveContext(chat_id,from_user)
-    if 'search_keywords' not in context:
-        say(chat_id,context,canned_responses.error_message()+'text_search')
-        return Response(Status=200)
-    search_keywords = '+'.join(context['search_keywords'].split())
-    API_URL = 'http://api.shopstyle.com/api/v2/products?pid=uid7984-31606272-0&format=json&fts={0}&offset=0&limit=10'.format(search_keywords)
-    r = requests.get(API_URL)
-    api_json = r.json()
-    context['text_query_result'] = api_json
-    context['text_query_result_index'] = 0
-    showShopStyleResults(chat_id,from_user,context)
+    if context['platform'] == 'FB':
+        buyThis(chat_id,context)
+    else:
+        suggested_responses = ['Go to store','Search with this pic','See more results']
+        dispatchMessage(context,'text',chat_id,from_user,[canned_responses.like_it()],suggested_responses=suggested_responses)
 
 
-    return Response(status=200)
+
 
 @debug_info
 def doTextSearchEncounter(chat_id,context):
@@ -336,7 +361,7 @@ def sendHowTo(chat_id,context):
 
     dispatchMessage(context,'text',chat_id,from_user,['First, find a picture of the dress. Make sure the dress is the only thing in the picture. Like this:'])
     dispatchMessage(context,'image',chat_id,from_user,[example_img],suggested_responses=['example pic'])
-    dispatchMessage(context,'text',chat_id,from_user,["Then I'll try to find simiar dresses from my virtual racks. Like these:"])
+    dispatchMessage(context,'text',chat_id,from_user,["Then I'll try to find similar dresses from my virtual racks. Like these:"])
 
     context['user_img_url'] = example_img
     context['search_type'] = 'image'
@@ -449,7 +474,7 @@ def index_kik():
             sendWelcomeMessage(message.chat_id,context0)
         else:
             # don't know how to respond to other messages e.g. videos
-            say(message.chat_id,context0,"I'm new here. I'll be learning as I'm going. Try sending me a pic")
+            say(message.chat_id,context0,"I'm new here. I'll be learning as I'm going. Try sending me a pic of a dress you'd like to search for")
              
     return Response(status=200) # If we return anything besides 200, Kik will try 3 more time to send the message
 
@@ -466,23 +491,32 @@ def index_fb():
         entires = output['entry']
         for entry in entires:
             for msg_obj in entry['messaging']:
-                if msg_obj.get('message') and msg_obj['message'].get('text'):
-                    msg = msg_obj['message']['text']
-                elif  msg_obj.get('postback')and msg_obj['postback'].get('payload'):
-                    msg = msg_obj['postback'].get('payload')
-                else:
-                    continue
                 from_user = msg_obj['sender']['id']
                 chat_id = from_user
                 context0 = {'from_user':from_user,'chat_id':chat_id}
                 if retrieveContext(chat_id,from_user):
                     context0 = retrieveContext(chat_id,from_user)
                 context0['platform'] = 'FB'
-                storeContext(chat_id,from_user,context0,msg=msg)
-                sendFBMessage(chat_id,from_user,[msg],suggested_responses=[])
-                selectActionFromText(chat_id,from_user, msg,context0)
+                if msg_obj.get('message') and msg_obj['message'].get('attachments'):
+                    img_url = msg_obj['message'].get('attachments')[0]['payload']['url']
+                    context0['user_img_url'] = img_url
+                    context0['search_type'] = 'image'
+                    storeContext(chat_id,from_user,context0)
+                    doSearchEncounter(chat_id, context0)
+                elif msg_obj.get('message') and msg_obj['message'].get('text'):
+                    msg = msg_obj['message']['text']
+                    storeContext(chat_id,from_user,context0,msg=msg)
+                    selectActionFromText(chat_id,from_user, msg,context0)
+                elif  msg_obj.get('postback')and msg_obj['postback'].get('payload'):
+                    msg = msg_obj['postback'].get('payload')
+                    storeContext(chat_id,from_user,context0,msg=msg)
+                    selectActionFromText(chat_id,from_user, msg,context0)
+                else:
+                    continue
+
         return Response(status=200)
     return Response(status=200)
+
 if __name__ == "__main__":
     application.run()
 
