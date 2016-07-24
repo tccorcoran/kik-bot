@@ -206,11 +206,9 @@ def doSearchEncounter(chat_id,context):
     search_type = context['search_type']
     say(chat_id,context,canned_responses.lookup())
     if search_type == 'image':
-        status = getFitroomResults(chat_id,context)
+        getFitroomResults(chat_id,context)
     elif search_type == 'text':
-       status = getShopStyleResults(chat_id,context)
-    if status.status_code !=200:
-        return Response(status=200)
+        getShopStyleResults(chat_id,context)
 
 @debug_info    
 def searchAgain(chat_id,context):
@@ -320,7 +318,8 @@ def seeMoreResults(chat_id,context):
         showFitRoomResults(chat_id,from_user,context)
     else:
         showShopStyleResults(chat_id,from_user,context)
- 
+
+
 @debug_info       
 def seeResultsOnWebsite(chat_id,context):
     from_user = context['from_user']
