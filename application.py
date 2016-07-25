@@ -485,6 +485,7 @@ def index_fb():
             return Response(request.args.get('hub.challenge'),status=200)
     elif request.method == 'POST':
         output = request.json
+        print output
         entires = output['entry']
         for entry in entires:
             for msg_obj in entry['messaging']:
@@ -494,7 +495,6 @@ def index_fb():
                 if retrieveContext(chat_id,from_user):
                     context0 = retrieveContext(chat_id,from_user)
                 context0['platform'] = 'FB'
-                print msg_obj
                 if msg_obj.get('message') and msg_obj['message'].get('attachments'):
                     img_url = msg_obj['message'].get('attachments')[0]['payload']['url']
                     context0['user_img_url'] = img_url
