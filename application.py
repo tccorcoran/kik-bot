@@ -5,7 +5,6 @@ from functools import wraps
 import base64
 
 from flask import request, Response
-from kik import KikError
 from kik.messages import TextMessage, PictureMessage, messages_from_json,SuggestedResponseKeyboard,\
                         TextResponse, LinkMessage,StartChattingMessage, CustomAttribution
 from wit import Wit
@@ -14,14 +13,13 @@ from bot import app as application
 from bot import kik, access_token
 import canned_responses
 from wit_helpers import say,merge,error, storeContext, retrieveContext
-from platform_specifics import sendFBMessage,dispatchMessage
+from platform_specifics import dispatchMessage
 
 ENV_TYPE = os.environ.get('ENV_TYPE')
 VERBOSE = False 
 SHOW_THIS_MANY = 3 # How many pictures to show at once
 
 if ENV_TYPE == 'DEV':
-    from pdb import set_trace
     application.debug = True
     VERBOSE = True
 
@@ -69,7 +67,7 @@ def showFitRoomResults(chat_id,from_user,context):
         
         urls.append(an_image)
         titles.append(responseFromAPI['images'][i]['title'])
-        print an_image, responseFromAPI['images'][i]['pageUrl']
+#        print an_image, responseFromAPI['images'][i]['pageUrl']
         i +=1
     dispatchMessage(context,'image',chat_id,from_user,urls,suggested_responses=titles)
     
@@ -509,6 +507,7 @@ def index_fb():
                 elif  msg_obj.get('postback')and msg_obj['postback'].get('payload'):
                     msg = msg_obj['postback'].get('payload')
                     storeContext(chat_id,from_user,context0,msg=msg)
+                    print msg
                     selectActionFromText(chat_id,from_user, msg,context0)
                 else:
                     continue
