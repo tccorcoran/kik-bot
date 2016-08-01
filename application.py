@@ -61,7 +61,7 @@ def showFitRoomResults(chat_id,from_user,context):
         # some images are blank, they have exactly 5086 or 3084 bytes. This hack
         # skips any images that size. Hacky fix until they fix it on the backend.
         is_blank =requests.head(an_image, headers={'Accept-Encoding': 'identity'})
-        if is_blank.stats_code != 200 or is_blank.headers['content-length'] in ('5086', '3084'):
+        if is_blank.status_code != 200 or is_blank.headers['content-length'] in ('5086', '3084'):
             responseFromAPI['images'].pop(i)
             continue
         
