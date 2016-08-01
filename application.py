@@ -67,7 +67,7 @@ def showFitRoomResults(chat_id,from_user,context):
         
         urls.append(an_image)
         titles.append(responseFromAPI['images'][i]['title'])
-#        print an_image, responseFromAPI['images'][i]['pageUrl']
+        print an_image, responseFromAPI['images'][i]['pageUrl']
         i +=1
     dispatchMessage(context,'image',chat_id,from_user,urls,suggested_responses=titles)
     
