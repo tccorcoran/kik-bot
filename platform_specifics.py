@@ -81,10 +81,11 @@ def sendFBMessage(chat_id,from_user,msgs,suggested_responses=[],msg_type=None,ex
                     title="I like this one",
                     payload="I like number {}st".format(i+1)
                 ))
-            buttons.append(elements.WebUrlButton(
-                    title="See on gofind site",
-                    url="gofindfashion.com/?{}".format(url)
-                ))
+# WEBSITE DOWN
+#            buttons.append(elements.WebUrlButton( 
+#                    title="See on gofind site",
+#                    url="gofindfashion.com/?{}".format(url)  
+#                ))
             buttons.append(elements.PostbackButton(
                     title="See more results",
                     payload="See more like this"

@@ -179,8 +179,8 @@ def selectAnImageMsg(chat_id,context):
                    TextResponse("Let's go with the third"),
                    TextResponse('See more like this'),
                    TextResponse('New search')]
-    if context['search_type'] == 'image':
-        responses.append(TextResponse('See results on the GoFindFashion website'))
+#    if context['search_type'] == 'image':
+#        responses.append(TextResponse('See results on the GoFindFashion website')) # website down for now
     select_an_image_msg = TextMessage(
         to=from_user,
         chat_id=chat_id,
